@@ -41,6 +41,8 @@ type pullOptions struct {
 	PathTraversal     bool
 	Output            string
 	ManifestConfigRef string
+	RequiredMediaType string // Ignore if empty string
+	HideOutput        bool
 }
 
 func pullCmd() *cobra.Command {
@@ -78,6 +80,10 @@ Example - Pull files with local cache:
 	cmd.Flags().BoolVarP(&opts.PathTraversal, "allow-path-traversal", "T", false, "allow storing files out of the output directory")
 	cmd.Flags().StringVarP(&opts.Output, "output", "o", ".", "output directory")
 	cmd.Flags().StringVarP(&opts.ManifestConfigRef, "manifest-config", "", "", "output manifest config file")
+
+	cmd.Flags().StringVarP(&opts.RequiredMediaType, "required-media-type", "", "", "Optional media type that must be present in the tree.  Ignored when omitted.")
+	cmd.Flags().BoolVarP(&opts.HideOutput, "hide-output", "", false, "hide output")
+
 	option.ApplyFlags(&opts, cmd.Flags())
 	return cmd
 }
@@ -99,6 +105,11 @@ func runPull(opts pullOptions) error {
 		src = cache.New(repo, ociStore)
 	}
 
+	var hasRequiredMediaType = false
+	if opts.RequiredMediaType == "" {
+		hasRequiredMediaType = true
+	}
+
 	// Copy Options
 	copyOptions := oras.DefaultCopyOptions
 	configPath, configMediaType := parseFileReference(opts.ManifestConfigRef, oras.MediaTypeUnknownConfig)
@@ -109,6 +120,11 @@ func runPull(opts pullOptions) error {
 		}
 		var ret []ocispec.Descriptor
 		for _, s := range successors {
+
+			if s.MediaType == opts.RequiredMediaType {
+				hasRequiredMediaType = true
+			}
+
 			if s.MediaType == configMediaType {
 				// Add annotation for manifest config
 				if s.Annotations == nil {
@@ -126,18 +142,31 @@ func runPull(opts pullOptions) error {
 			}
 			ret = append(ret, s)
 		}
+
+		if !hasRequiredMediaType {
+			return nil, fmt.Errorf("when fetching metadata required media type '%s' is required in the pull tree", opts.RequiredMediaType)
+		}
+
 		return ret, nil
 	}
 
 	pulledEmpty := true
-	copyOptions.PreCopy = display.StatusPrinter("Downloading", opts.Verbose)
+	copyOptions.PreCopy = func(ctx context.Context, desc ocispec.Descriptor) error {
+		if !opts.HideOutput {
+			display.StatusPrinter("Downloading", opts.Verbose)
+		}
+		return nil
+	}
 	copyOptions.PostCopy = func(ctx context.Context, desc ocispec.Descriptor) error {
 		name := desc.Annotations[ocispec.AnnotationTitle]
 		if name == "" {
 			return nil
 		}
 		pulledEmpty = false
-		return display.Print("Downloaded ", display.ShortDigest(desc), name)
+		if !opts.HideOutput {
+			return display.Print("Downloaded ", display.ShortDigest(desc), name)
+		}
+		return nil
 	}
 
 	ctx, _ := opts.SetLoggerLevel()
@@ -150,10 +179,13 @@ func runPull(opts pullOptions) error {
 	if err != nil {
 		return err
 	}
-	if pulledEmpty {
+	if pulledEmpty && !opts.HideOutput {
 		fmt.Println("Downloaded empty artifact")
 	}
-	fmt.Println("Pulled", opts.targetRef)
-	fmt.Println("Digest:", desc.Digest)
+
+	if !opts.HideOutput {
+		fmt.Println("Pulled", opts.targetRef)
+		fmt.Println("Digest:", desc.Digest)
+	}
 	return nil
 }

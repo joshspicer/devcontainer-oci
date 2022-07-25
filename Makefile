@@ -1,5 +1,5 @@
 PROJECT_PKG = oras.land/oras
-CLI_EXE     = oras
+CLI_EXE     = devcontainer-oci
 CLI_PKG     = $(PROJECT_PKG)/cmd/oras
 GIT_COMMIT  = $(shell git rev-parse HEAD)
 GIT_TAG     = $(shell git describe --tags --abbrev=0 --exact-match 2>/dev/null)
