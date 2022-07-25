@@ -41,8 +41,10 @@ type pullOptions struct {
 	PathTraversal     bool
 	Output            string
 	ManifestConfigRef string
+
 	RequiredMediaType string // Ignore if empty string
 	HideOutput        bool
+	LockFilePath      string
 }
 
 func pullCmd() *cobra.Command {
@@ -81,8 +83,8 @@ Example - Pull files with local cache:
 	cmd.Flags().StringVarP(&opts.Output, "output", "o", ".", "output directory")
 	cmd.Flags().StringVarP(&opts.ManifestConfigRef, "manifest-config", "", "", "output manifest config file")
 
-	cmd.Flags().StringVarP(&opts.RequiredMediaType, "required-media-type", "", "", "Optional media type that must be present in the tree.  Ignored when omitted.")
-	cmd.Flags().BoolVarP(&opts.HideOutput, "hide-output", "", false, "hide output")
+	// cmd.Flags().StringVarP(&opts.RequiredMediaType, "required-media-type", "", "", "Optional media type that must be present in the tree.  Ignored when omitted.")
+	// cmd.Flags().BoolVarP(&opts.HideOutput, "hide-output", "", false, "hide output")
 
 	option.ApplyFlags(&opts, cmd.Flags())
 	return cmd
@@ -157,15 +159,32 @@ func runPull(opts pullOptions) error {
 		}
 		return nil
 	}
+
+	var lockFileDigests []LockFileItem
 	copyOptions.PostCopy = func(ctx context.Context, desc ocispec.Descriptor) error {
 		name := desc.Annotations[ocispec.AnnotationTitle]
 		if name == "" {
 			return nil
 		}
 		pulledEmpty = false
+
+		if opts.LockFilePath != "" {
+			// append digest to lockFileDigests
+			lockFileDigests = append(lockFileDigests,
+				LockFileItem{
+					Target:      opts.targetRef,
+					Ref:         repo.Reference.Reference,
+					Registry:    repo.Reference.Registry,
+					Digest:      string(desc.Digest),
+					Annotations: desc.Annotations,
+					MediaType:   desc.MediaType,
+				})
+		}
+
 		if !opts.HideOutput {
 			return display.Print("Downloaded ", display.ShortDigest(desc), name)
 		}
+
 		return nil
 	}
 
@@ -187,5 +206,19 @@ func runPull(opts pullOptions) error {
 		fmt.Println("Pulled", opts.targetRef)
 		fmt.Println("Digest:", desc.Digest)
 	}
+
+	if opts.LockFilePath != "" {
+		// write lock file
+		lockFile, err := os.OpenFile(opts.LockFilePath, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			return err
+		}
+		defer lockFile.Close()
+		for _, item := range lockFileDigests {
+			entry := fmt.Sprintf("%s\n      %s\n      %s\n      %s\n      %s\n      %s\n\n", item.Target, item.Ref, item.Registry, item.Digest, item.Annotations[ocispec.AnnotationTitle], item.MediaType)
+			lockFile.WriteString(entry)
+		}
+	}
+
 	return nil
 }

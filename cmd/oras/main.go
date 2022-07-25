@@ -13,6 +13,7 @@ func main() {
 	}
 	cmd.AddCommand(
 		// pullCmd(),
+		resolveCmd(),
 		// pushCmd(),
 		loginCmd(),
 		logoutCmd(),
