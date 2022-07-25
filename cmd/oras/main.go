@@ -18,7 +18,7 @@ func main() {
 		logoutCmd(),
 		fetchTagsCmd(),
 		metadataCmd(),
-		// versionCmd(),
+		versionCmd(),
 		// discoverCmd(),
 		// copyCmd(),
 		// attachCmd(),

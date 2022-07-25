@@ -27,7 +27,7 @@ jobs:
       - name: Run Unit Tests
         run: make test
       - name: Check Version
-        run: bin/linux/amd64/oras version
+        run: bin/linux/amd64/devcontainer-oci version
       - name: Upload Coverage Report
         uses: actions/upload-artifact@master
         with:
