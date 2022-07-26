@@ -3,12 +3,15 @@
 > This is an experiment!
 
 ### Login
+
 ```bash
 
 make build-linux-amd64 && cd bin/linux/amd64
 
 ./devcontainer-oci login ghcr.io -u USERNAME -p <GITHUB_PAT_WITH_PACKAGING>
 ```
+
+### Resolve feature identifiers to tarballs & lockfile
 
 ```bash
 $ ./devcontainer-oci resolve ghcr.io/codspace/features/ruby:1,ghcr.io/codspace/features/go:1.0,ghcr.io/codspace/features/python:1.0.10
@@ -62,6 +65,8 @@ b2006e7647191f7b47222ae48df049c6e21a4c5a04acfad0c4ef614d819de4c5  -
 
 ```
 
+### Fetch metadata for all features under namespace
+
 ```bash
 $ ./devcontainer-oci metadata ghcr.io/codspace/features
 
@@ -97,3 +102,6 @@ rust
    1.0.10
 
 ```
+
+## GitHub GHCR UX
+See _https://github.com/orgs/codspace/packages?repo_name=features_
